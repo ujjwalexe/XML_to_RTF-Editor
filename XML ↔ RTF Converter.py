@@ -7,6 +7,8 @@ def xml_to_rtf(xml_text):
     try:
         root = etree.fromstring(xml_text.encode('utf-8'))
 
+#parse funtions
+
         def rtf_format(text, attrib):
             if not text:
                 return ""
@@ -19,7 +21,7 @@ def xml_to_rtf(xml_text):
                 rtf += r"\super "
             if attrib.get("sub") == "true":
                 rtf += r"\sub "
-
+       
             rtf += text
 
             if attrib.get("bold") == "true":
@@ -28,35 +30,200 @@ def xml_to_rtf(xml_text):
                 rtf += r" \i0"
             if attrib.get("sup") == "true" or attrib.get("sub") == "true":
                 rtf += r" \nosupersub"
+            if style in ["journaltitle", "articletitle"]:
+                rtf += r" \i0"
+            if style == "credittaxonomy":
+                rtf += r" \b0"    
             return rtf
 
+
+
         def parse_paragraph(p):
-            rtf_line = ""
-            is_heading = p.attrib.get("style") == "Title_document"
-
-            if is_heading:
-                rtf_line += r"\fs36\b "
-
+            rtf = ""
             for r in p.findall("r"):
                 t = r.find("t")
                 if t is not None and t.text:
-                    rtf_line += rtf_format(t.text.strip(), r.attrib)
+                    rtf += rtf_format(t.text.strip(), r.attrib)
+            rtf += r"\par\n"
+            return rtf
+        
+        def parse_supp_media(p):
+            rtf = r"\fs22 Supplementary: "
+            for r in p.findall("r"):
+                t = r.find("t")
+                if t is not None and t.text:
+                    rtf += rtf_format(t.text.strip(), r.attrib)
+            rtf += r" \fs24\par\n"
+            return rtf
 
-            if is_heading:
-                rtf_line += r" \b0\fs24"
+        def parse_referenced_data(p):
+            rtf = r"\fs22\ul "
+            for r in p.findall("r"):
+                t = r.find("t")
+                if t is not None and t.text:
+                    rtf += rtf_format(t.text.strip(), r.attrib)
+            rtf += r" \ul0\fs24\par\n"
+            return rtf
 
-            return rtf_line + r"\par\n"
+        def parse_bib_entry(p):
+            rtf = r"{\pard\box\brdrdot "
+            for r in p.findall("r"):
+                t = r.find("t")
+                if t is not None and t.text:
+                    rtf += rtf_format(t.text.strip(), r.attrib)
+            rtf += r" \par}"
+            return rtf + "\n"
+
+
+        def parse_title(p):
+            rtf = r"\fs48\b\qc"
+            for r in p.findall("r"):
+                t = r.find("t")
+                if t is not None and t.text:
+                    rtf += rtf_format(t.text.strip(), r.attrib)
+            rtf += r"\b0\fs48\qc0\par\n"   
+            return rtf
+                 
+                 
+        def parse_authors(p):
+            rtf = r"\fs24\i "
+            for r in p.findall("r"):
+                t = r.find("t")
+                if t is not None and t.text:
+                    rtf += rtf_format(t.text.strip(), r.attrib)
+            rtf += r"\i0\par\n"
+            return rtf
+        
+        
+        def parse_abstract(p):
+            rtf = r"\fs22 "
+            for r in p.findall("r"):
+                t = r.find("t")
+                if t is not None and t.text:
+                    rtf += rtf_format(t.text.strip(), r.attrib)
+            rtf += r" \fs24\par\n"
+            return rtf
+        
+
+        def parse_list(p):
+            rtf = r"\bullet\tab "
+            for r in p.findall("r"):
+                t = r.find("t")
+                if t is not None and t.text:
+                    rtf += rtf_format(t.text.strip(), r.attrib)
+            rtf += r"\par\n"
+            return rtf     
+        
+        
+        def parse_heading(p):
+            rtf = r"\fs36\b"
+            for r in p.findall("r"):
+                t = r.find("t")
+                if t is not None and t.text:
+                    rtf += rtf_format(t.text.strip(), r.attrib)
+            rtf += r"\b0\fs24\par\n"
+            return rtf  
+
+
+        def parse_keywords(p):
+            rtf = r"\i Keywords: "
+            for r in p.findall("r"):
+                t = r.find("t")
+                if t is not None and t.text:
+                    rtf += t.text.strip() + " "
+            rtf += r"\i0\par\n"
+            return rtf
+        
+        
+        def parse_affiliation(p):
+            rtf = r"\fs22\tab "
+            for r in p.findall("r"):
+                t = r.find("t")
+                if t is not None and t.text:
+                    rtf += t.text.strip() + " "
+            rtf +=r"\fs24\par\n"
+            return rtf         
+        
+        def parse_abshead(p):
+            rtf = r"\fs28\b"
+            for r in p.findall("r"):
+                t = r.find("t")
+                if t is not None and t.text:
+                    rtf += t.text.strip() + " "
+            rtf +=r"\b0\fs24\par\n"
+            return rtf     
+        
+        def parse_email(p):
+            rtf = r"\cf1\ul "
+            for r in p.findall("r"):
+                t = r.find("t")
+                if t is not None and t.text:
+                    rtf += t.text.strip() + " "
+            rtf +=r"\ul0\cf0\par\n"
+            return rtf     
+        
+        def parse_hyperlink(hyperlink):
+            Url = hyperlink.attrib.get("Url", "")
+            display_text = ""
+            
+            for r in hyperlink.findall("r"):
+                t = r.find("t")
+                if t is not None and t.text:
+                    display_text += rtf_format(t.text.strip(), r.attrib)
+            return (
+                r"{\field{\*\fldinst{HYPERLINK \"" + Url + r"\"}}"
+                r"{\fldrslt{\cf1\ul " + display_text + r"\ul0\cf0}}}"
+            )          
 
         rtf_output = ""
         if root.tag.lower() == "p":
             rtf_output += parse_paragraph(root)
         else:
             for p in root.findall(".//p"):
-                rtf_output += parse_paragraph(p)
+                style = p.attrib.get("style", "").lower()
+                
+                if style == "title_document":
+                    rtf_output += parse_title(p)
+                elif style == "authors":
+                    rtf_output += parse_authors(p)
+                elif style == "abstract":
+                    rtf_output += parse_abstract(p)
+                elif style == "list paragraph":
+                    rtf_output += parse_list(p)
+                elif style in ["head1", "heading1"]:
+                    rtf_output += parse_heading(p)
+                elif style =="keywords" :
+                    rtf_output += parse_keywords(p)  
+                elif style =="affiliation":
+                    rtf_output += parse_affiliation(p)    
+                elif style == "abshead":
+                    rtf_output += parse_abshead(p)    
+                elif style == "email":
+                    rtf_output += parse_email(p)     
+                elif style == "suppmedia":
+                    rtf_output += parse_supp_media(p)
+                elif style == "referenceddata":
+                    rtf_output += parse_referenced_data(p)
+                elif style == "bib_entry":
+                    rtf_output += parse_bib_entry(p)    
+                    
+                    
+                else: 
+                    rtf_output += parse_paragraph(p) 
+                    
+                               
+            for el in root.iter("Hyperlink"):
+                rtf_output += parse_hyperlink(el) + r"\par\n"   
+                
+        
 
-        return "{\\rtf1\\ansi\n" + rtf_output + "}"
+        return "{\\rtf1\\ansi\\deff0{\\colortbl;\\red0\\green0\\blue255;}\n" + rtf_output + "}"
     except Exception as e:
         return f"Error parsing XML: {e}"
+
+
+
+
 
 # GUI Functionalities 
 def open_xml_file():
