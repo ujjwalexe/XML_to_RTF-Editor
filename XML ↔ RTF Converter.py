@@ -1,7 +1,7 @@
 import tkinter as tk
-from tkinter import filedialog, messagebox, scrolledtext
+from tkinter import filedialog, messagebox, scrolledtext, ttk
 from lxml import etree
-
+import subprocess   
 # XML to RTF Conversion Logic 
 def xml_to_rtf(xml_text):
     try:
@@ -233,25 +233,25 @@ def open_xml_file():
     try:
         with open(file_path, "r", encoding="utf-8") as file:
             xml_content = file.read()
-            xml_input.delete("1.0", tk.END)
-            xml_input.insert(tk.END, xml_content)
+            xml_input_tab.delete("1.0", tk.END)
+            xml_input_tab.insert(tk.END, xml_content)
     except Exception as e:
         messagebox.showerror("Error", str(e))
 
 def convert_and_preview():
-    xml_text = xml_input.get("1.0", tk.END).strip()
+    xml_text = xml_input_tab.get("1.0", tk.END).strip()
     if not xml_text:
         messagebox.showwarning("Empty Input", "XML content is empty.")
         return
     try:
         rtf_result = xml_to_rtf(xml_text)
-        rtf_output.delete("1.0", tk.END)
-        rtf_output.insert(tk.END, rtf_result)
+        rtf_output_tab.delete("1.0", tk.END)
+        rtf_output_tab.insert(tk.END, rtf_result)
     except Exception as e:
         messagebox.showerror("Conversion Error", str(e))
 
 def save_rtf():
-    rtf_text = rtf_output.get("1.0", tk.END).strip()
+    rtf_text = rtf_output_tab.get("1.0", tk.END).strip()
     if not rtf_text:
         messagebox.showwarning("Empty Output", "RTF content is empty.")
         return
@@ -265,12 +265,25 @@ def save_rtf():
     except Exception as e:
         messagebox.showerror("Save Error", str(e))
 
+def save_and_open_rtf():
+    rtf_text = rtf_output_tab.get("1.0", tk.END).strip()
+    if not rtf_text:
+        messagebox.showwarning("Empty Output", "RTF content is empty.")
+        return
+    file_path = filedialog.asksaveasfilename(defaultextension=".rtf", filetypes=[("RTF Files", "*.rtf")])
+    if not file_path:
+        return
+    try:
+        with open(file_path, "w", encoding="utf-8") as file:
+            file.write(rtf_text)
+        subprocess.Popen(["notepad", file_path], shell=True)
+    except Exception as e:
+        messagebox.showerror("Error Opening File", str(e))
 
-
-# GUI Layout 
+# GUI Layout
 root = tk.Tk()
 root.title("XML to RTF Converter")
-root.geometry("900x700")
+root.geometry("1000x700")
 root.resizable(True, True)
 
 # Top Buttons
@@ -286,14 +299,18 @@ btn_convert.grid(row=0, column=1, padx=10)
 btn_save = tk.Button(top_frame, text="Save RTF", command=save_rtf, bg="lightcoral", fg="black")
 btn_save.grid(row=0, column=2, padx=10)
 
-# Input XML
-tk.Label(root, text="XML Input:").pack()
-xml_input = scrolledtext.ScrolledText(root, height=12)
-xml_input.pack(fill=tk.BOTH, expand=True, padx=10, pady=5)
+btn_save_open = tk.Button(top_frame, text="Save & Open RTF", command=save_and_open_rtf, bg="orange", fg="black")
+btn_save_open.grid(row=0, column=3, padx=10)
 
-# Output RTF
-tk.Label(root, text="RTF Output:").pack()
-rtf_output = scrolledtext.ScrolledText(root, height=12)
-rtf_output.pack(fill=tk.BOTH, expand=True, padx=10, pady=5)
+# Tabbed Layout
+tab_control = ttk.Notebook(root)
+
+xml_input_tab = scrolledtext.ScrolledText(tab_control, height=30)
+tab_control.add(xml_input_tab, text="XML Input")
+
+rtf_output_tab = scrolledtext.ScrolledText(tab_control, height=30)
+tab_control.add(rtf_output_tab, text="RTF Output")
+
+tab_control.pack(expand=1, fill='both', padx=10, pady=10)
 
 root.mainloop()
