@@ -65,7 +65,10 @@ def xml_to_rtf(xml_text):
             rtf += r" \ul0\fs24\par\n"
             return rtf
 
+        bib_counter = [0] #Counter 
+        
         def parse_bib_entry(p):
+            bib_counter[0] += 1
             rtf = r"{\pard\box\brdrdot "
             for r in p.findall("r"):
                 t = r.find("t")
@@ -106,17 +109,19 @@ def xml_to_rtf(xml_text):
         
 
         def parse_list(p):
-            rtf = r"\bullet\tab "
+            rtf = r"\li200\bullet\tab "
             for r in p.findall("r"):
                 t = r.find("t")
                 if t is not None and t.text:
                     rtf += rtf_format(t.text.strip(), r.attrib)
-            rtf += r"\par\n"
+            rtf += r"\li0\par\n"
             return rtf     
         
+        heading_counter = [0] #Counter
         
         def parse_heading(p):
-            rtf = r"\fs36\b"
+            heading_counter[0] += 1
+            rtf = r"\fs36\b {heading_counter[0]}"
             for r in p.findall("r"):
                 t = r.find("t")
                 if t is not None and t.text:
@@ -162,6 +167,24 @@ def xml_to_rtf(xml_text):
             rtf +=r"\ul0\cf0\par\n"
             return rtf     
         
+        def parse_article_title(p):
+            rtf = r"\fs36\b\qc "
+            for r in p.findall("r"):
+                t = r.find("t")
+            if t is not None and t.text:
+                rtf += rtf_format(t.text.strip(), r.attrib)
+            rtf += r"\b0\qc0\fs24\par\n"
+            return rtf
+
+        def parse_journaltitle(p):
+            rtf = r"\fs24\i\qc "
+            for r in p.findall("r"):
+                t = r.find("t")
+                if t is not None and t.text:
+                     rtf += rtf_format(t.text.strip(), r.attrib)
+            rtf += r"\i0\qc0\par\n"
+            return rtf
+   
         def parse_hyperlink(hyperlink):
             Url = hyperlink.attrib.get("Url", "")
             display_text = ""
@@ -173,7 +196,83 @@ def xml_to_rtf(xml_text):
             return (
                 r"{\field{\*\fldinst{HYPERLINK \"" + Url + r"\"}}"
                 r"{\fldrslt{\cf1\ul " + display_text + r"\ul0\cf0}}}"
-            )          
+            )  
+        def parse_booktitle(p):
+            rtf = r"\fs24\b\i "
+            for r in p.findall("r"):
+                t = r.find("t")
+                if t is not None and t.text:
+                    rtf += rtf_format(t.text.strip(), r.attrib)
+            rtf += r" \i0\b0\par\n"
+            return rtf
+        
+        
+        def parse_doi_url(p):
+            rtf = r"\cf1\ul "
+            for r in p.findall("r"):
+                t = r.find("t")
+                if t is not None and t.text:
+                 rtf += t.text.strip() + " "
+            rtf += r"\ul0\cf0\par\n"
+            return rtf
+
+        def parse_pubinfo(p):
+            rtf = r"\fs22\tab "
+            for r in p.findall("r"):
+                t = r.find("t")
+            if t is not None and t.text:
+                rtf += t.text.strip() + " "
+            rtf += r"\fs24\par\n"
+            return rtf
+       
+        def parse_subheading(p):
+            rtf = r"\fs28\b "
+            for r in p.findall("r"):
+                t = r.find("t")
+                if t is not None and t.text:
+                    rtf += t.text.strip() + " "
+            rtf += r"\b0\fs24\par\n"
+            return rtf
+        
+        def parse_affiliation_detail(p):
+            rtf = r"\fs22\tab "
+            for r in p.findall("r"):
+                t = r.find("t")
+                if t is not None and t.text:
+                    rtf += t.text.strip() + " "
+            rtf += r"\fs24\par\n"
+            return rtf
+    
+        
+        figure_counter = [0] #counter
+        table_counter = [0] #counter
+
+        def parse_caption(p, caption_type):
+            if caption_type == "figure":
+                figure_counter[0] += 1
+                prefix = f"Figure {figure_counter[0]}"
+            else:
+                table_counter[0] += 1
+                prefix = f"Table {table_counter[0]}"
+
+            rtf = rf"\fs22\i {prefix}: "
+            for r in p.findall("r"):
+                t = r.find("t")
+                if t is not None and t.text:
+                    rtf += rtf_format(t.text.strip(), r.attrib)
+            rtf += r" \i0\fs24\par\n"
+            return rtf
+
+
+        def parse_label(p):
+            rtf = r"\b "
+            for r in p.findall("r"):
+                t = r.find("t")
+                if t is not None and t.text:
+                    rtf += t.text.strip() + " "
+            rtf += r"\b0\par\n"
+            return rtf
+
 
         rtf_output = ""
         if root.tag.lower() == "p":
@@ -206,7 +305,30 @@ def xml_to_rtf(xml_text):
                     rtf_output += parse_referenced_data(p)
                 elif style == "bib_entry":
                     rtf_output += parse_bib_entry(p)    
-                    
+                elif style == "articletitle":
+                    rtf_output += parse_article_title(p)
+                elif style == "journaltitle":
+                    rtf_output += parse_journaltitle(p)   
+                elif style == "booktitle":
+                    rtf_output += parse_booktitle(p)
+                elif style in ["doi", "url"]:
+                    rtf_output += parse_doi_url(p)
+                elif style in ["year", "volume", "issue", "pages"]:
+                    rtf_output += parse_pubinfo(p)
+                elif style in ["head2", "ackhead", "conflictofinteresthead", "referencehead", "keywordhead"]:
+                    rtf_output += parse_subheading(p)
+                elif style in ["orgname", "orgdiv", "city", "state", "country", "pincode", "street"]:
+                    rtf_output += parse_affiliation_detail(p)
+                elif style == "figurecaption":
+                    rtf_output += parse_caption(p, "figure")
+                elif style == "tablecaption":
+                    rtf_output += parse_caption(p, "table")
+
+                elif style == "label":
+                    rtf_output += parse_label(p)        
+                elif style in ["ackpara", "conflictofinterest", "refmisc"]:
+                    rtf_output += parse_paragraph(p)
+
                     
                 else: 
                     rtf_output += parse_paragraph(p) 
@@ -217,7 +339,11 @@ def xml_to_rtf(xml_text):
                 
         
 
-        return "{\\rtf1\\ansi\\deff0{\\colortbl;\\red0\\green0\\blue255;}\n" + rtf_output + "}"
+        return (
+                    r"{\rtf1\ansi\deff0"
+                    r"{\colortbl;\red0\green0\blue255;}"
+                    "\n" + rtf_output + "}"
+        )
     except Exception as e:
         return f"Error parsing XML: {e}"
 
@@ -276,7 +402,7 @@ def save_and_open_rtf():
     try:
         with open(file_path, "w", encoding="utf-8") as file:
             file.write(rtf_text)
-        subprocess.Popen(["notepad", file_path], shell=True)
+        subprocess.Popen([r"C:\Users\A9790\Desktop\TextEditor-master\TextEditor-master\Text Editor\bin\Debug\Text Editor.exe", file_path], shell=True)
     except Exception as e:
         messagebox.showerror("Error Opening File", str(e))
 
